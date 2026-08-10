@@ -19,6 +19,7 @@ export default function PublicSitePage() {
   const [cart, setCart] = useState<{ [key: string]: { item: any; quantity: number } }>({});
   const [showCartModal, setShowCartModal] = useState(false);
 
+  // بيانات الزبون والموقع
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
@@ -108,7 +109,7 @@ export default function PublicSitePage() {
     }
 
     if (orderType.includes('توصيل') && !customerAddress.trim()) {
-      alert('لطفاً أدخل موقع التوصيل لإكمال الطلب.');
+      alert('لطفاً أدخل موقع التوصيل أو رابط الخريطة لإكمال الطلب.');
       return;
     }
 
@@ -122,7 +123,7 @@ export default function PublicSitePage() {
     }));
 
     const orderPayload: any = {
-      business_id: business?.id,
+      business_id: business.id,
       customer_name: customerName,
       customer_phone: customerPhone,
       address: customerAddress,
@@ -163,45 +164,53 @@ export default function PublicSitePage() {
     );
   }
 
-  // استخراج الرقم والموقع أو استخدام قيم افتراضية
-  const phoneDisplay = business.phone || business.phone_number || business.mobile || '0500000000';
-  const locationDisplay = business.location || business.address || business.map_url || business.google_maps || 'https://maps.google.com';
+  // قراءة الرقم والموقع بجميع التسميات المحتملة في الجدول
+  const phone = business.phone || business.phone_number || business.mobile || business.whatsapp || business.contact_number;
+  const location = business.location || business.address || business.map_url || business.google_maps || business.location_url;
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8 pb-28" dir="rtl">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
         
-        {/* هيدر المطعم وأزرار التواصل والموقع */}
+        {/* هيدر المطعم والمعلومات */}
         <div className="text-center border-b pb-6 mb-6">
           <h1 className="text-3xl font-bold mb-2 text-gray-900">{business.business_name || business.name}</h1>
           <p className="text-gray-600 mb-4">{business.description || 'مطعم سحابي يقدم وجبات سريعة'}</p>
 
-          <div className="flex flex-wrap justify-center gap-3 mt-4">
-            <a 
-              href={`tel:${phoneDisplay}`}
-              className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition flex items-center gap-1 shadow-sm"
-            >
-              📞 اتصل بنا: {phoneDisplay}
-            </a>
+          {/* أزرار الاتصال والواتساب والموقع */}
+          {(phone || location) && (
+            <div className="flex flex-wrap justify-center gap-3 mt-4">
+              {phone && (
+                <>
+                  <a 
+                    href={`tel:${phone}`}
+                    className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition flex items-center gap-1 shadow-sm"
+                  >
+                    📞 {phone}
+                  </a>
+                  <a 
+                    href={`https://wa.me/${String(phone).replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-800 transition flex items-center gap-1 shadow-sm"
+                  >
+                    💬 واتساب
+                  </a>
+                </>
+              )}
 
-            <a 
-              href={`https://wa.me/${phoneDisplay.replace(/[^0-9]/g, '')}`}
-              target="_blank"
-              rel="noreferrer"
-              className="bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-800 transition flex items-center gap-1 shadow-sm"
-            >
-              💬 واتساب
-            </a>
-
-            <a 
-              href={locationDisplay.startsWith('http') ? locationDisplay : `https://maps.google.com/?q=${encodeURIComponent(locationDisplay)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition flex items-center gap-1 shadow-sm"
-            >
-              📍 موقع المطعم
-            </a>
-          </div>
+              {location && (
+                <a 
+                  href={String(location).startsWith('http') ? location : `https://maps.google.com/?q=${encodeURIComponent(location)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition flex items-center gap-1 shadow-sm"
+                >
+                  📍 موقع المطعم
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         {/* قائمة الأصناف */}
@@ -242,6 +251,7 @@ export default function PublicSitePage() {
         </div>
       </div>
 
+      {/* زر السلة العائم */}
       {totalItemsCount > 0 && (
         <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40">
           <button 
@@ -259,6 +269,7 @@ export default function PublicSitePage() {
         </div>
       )}
 
+      {/* مودال السلة والدفع */}
       {showCartModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl" dir="rtl">
