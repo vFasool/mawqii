@@ -65,7 +65,7 @@ export default function DashboardPage() {
       {
         user_id: user.id,
         business_name: businessName,
-        business_type: businessType, // تم إضافة هذا العمود لحل خطأ not-null
+        business_type: businessType,
         description: description,
         phone: phone,
         site_id: cleanSiteId,
@@ -83,7 +83,7 @@ export default function DashboardPage() {
       setDescription('')
       setPhone('')
       setSiteId('')
-      fetchBusinesses() // تحديث القائمة فوراً
+      fetchBusinesses()
     }
   }
 
@@ -139,20 +139,35 @@ export default function DashboardPage() {
             {businesses.map((b) => (
               <div
                 key={b.id}
-                className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex justify-between items-center"
+                className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
               >
                 <div>
                   <h3 className="font-bold text-lg text-gray-900">{b.business_name}</h3>
                   <p className="text-xs text-gray-500 mt-1">{b.description || 'لا يوجد وصف'}</p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* أزرار التوجيه المضافة */}
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  <Link
+                    href={`/dashboard/edit/${b.id}`}
+                    className="bg-emerald-800 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-emerald-900 transition flex-1 md:flex-none text-center"
+                  >
+                    ✏️ المحرر الشامل
+                  </Link>
+
+                  <Link
+                    href="/dashboard/orders"
+                    className="bg-blue-600 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-blue-700 transition flex-1 md:flex-none text-center"
+                  >
+                    📺 الطلبات
+                  </Link>
+
                   <Link
                     href={`/s/${b.site_id || b.id}`}
                     target="_blank"
-                    className="text-blue-600 text-sm font-bold underline px-3 py-1.5"
+                    className="text-gray-700 bg-gray-100 text-xs font-bold px-3 py-2 rounded-xl hover:bg-gray-200 transition flex-1 md:flex-none text-center"
                   >
-                    عرض الصفحة
+                    👁️ عرض الصفحة
                   </Link>
                 </div>
               </div>
@@ -162,7 +177,7 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* النافذة المنبثقة لإضافة نشاط جديد Modal */}
+      {/* النافذة المنبثقة Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4" dir="rtl">
@@ -207,7 +222,6 @@ export default function DashboardPage() {
                   className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50 dir-ltr text-right"
                   required
                 />
-                <span className="text-[10px] text-gray-400 mt-1 block">سيكون رابط الصفحة: /s/{siteId || 'your-id'}</span>
               </div>
 
               <div>
