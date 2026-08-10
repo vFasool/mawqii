@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 export default function PublicSitePage() {
   const params = useParams();
   const rawSlug = params?.slug as string;
-  const slug = rawSlug ? decodeURIComponent(rawSlug) : '';
+  const slug = rawSlug ? decodeURIComponent(rawSlug).trim().toLowerCase() : '';
 
   const [loading, setLoading] = useState(true);
   const [business, setBusiness] = useState<any>(null);
@@ -21,21 +21,12 @@ export default function PublicSitePage() {
       if (!slug) return;
       setLoading(true);
 
-      // البحث برقم الـ site_id أولاً، ثم الـ id
-      let { data: bData, error } = await supabase
+      // 1. البحث في site_id مع إلغاء الـ Cache
+      const { data: bData, error } = await supabase
         .from('businesses')
         .select('*')
-        .eq('site_id', slug)
+        .or(`site_id.eq.${slug},id.eq.${slug}`)
         .maybeSingle();
-
-      if (!bData) {
-        const { data: fallbackData } = await supabase
-          .from('businesses')
-          .select('*')
-          .eq('id', slug)
-          .maybeSingle();
-        bData = fallbackData;
-      }
 
       if (!bData) {
         setLoading(false);
@@ -75,7 +66,7 @@ export default function PublicSitePage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 md:p-8 dir-rtl" dir="rtl">
+    <main className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
         <h1 className="text-3xl font-bold mb-2 text-gray-900">{business.business_name}</h1>
         <p className="text-gray-600 mb-6">{business.description || 'أهلاً بكم في صفحتنا'}</p>
