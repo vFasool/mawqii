@@ -19,10 +19,9 @@ export default function PublicSitePage() {
   const [cart, setCart] = useState<{ [key: string]: { item: any; quantity: number } }>({});
   const [showCartModal, setShowCartModal] = useState(false);
 
-  // بيانات الزبون والموقع
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [customerAddress, setCustomerAddress] = useState(''); // موقع التوصيل
+  const [customerAddress, setCustomerAddress] = useState('');
   const [orderType, setOrderType] = useState('استلام سفري 🛍️');
   const [paymentMethod, setPaymentMethod] = useState('كاش عند الاستلام 💵');
 
@@ -108,9 +107,8 @@ export default function PublicSitePage() {
       return;
     }
 
-    // التحقق من إدخال الموقع في حال كان الطلب توصيل
     if (orderType.includes('توصيل') && !customerAddress.trim()) {
-      alert('لطفاً أدخل موقع التوصيل أو رابط الخريطة لإكمال الطلب.');
+      alert('لطفاً أدخل موقع التوصيل لإكمال الطلب.');
       return;
     }
 
@@ -124,10 +122,10 @@ export default function PublicSitePage() {
     }));
 
     const orderPayload: any = {
-      business_id: business.id,
+      business_id: business?.id,
       customer_name: customerName,
       customer_phone: customerPhone,
-      address: customerAddress, // حفظ موقع الزبون
+      address: customerAddress,
       order_type: orderType,
       payment_method: paymentMethod,
       items: formattedItems,
@@ -165,14 +163,48 @@ export default function PublicSitePage() {
     );
   }
 
+  // استخراج الرقم والموقع أو استخدام قيم افتراضية
+  const phoneDisplay = business.phone || business.phone_number || business.mobile || '0500000000';
+  const locationDisplay = business.location || business.address || business.map_url || business.google_maps || 'https://maps.google.com';
+
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8 pb-28" dir="rtl">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+        
+        {/* هيدر المطعم وأزرار التواصل والموقع */}
         <div className="text-center border-b pb-6 mb-6">
           <h1 className="text-3xl font-bold mb-2 text-gray-900">{business.business_name || business.name}</h1>
           <p className="text-gray-600 mb-4">{business.description || 'مطعم سحابي يقدم وجبات سريعة'}</p>
+
+          <div className="flex flex-wrap justify-center gap-3 mt-4">
+            <a 
+              href={`tel:${phoneDisplay}`}
+              className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition flex items-center gap-1 shadow-sm"
+            >
+              📞 اتصل بنا: {phoneDisplay}
+            </a>
+
+            <a 
+              href={`https://wa.me/${phoneDisplay.replace(/[^0-9]/g, '')}`}
+              target="_blank"
+              rel="noreferrer"
+              className="bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-800 transition flex items-center gap-1 shadow-sm"
+            >
+              💬 واتساب
+            </a>
+
+            <a 
+              href={locationDisplay.startsWith('http') ? locationDisplay : `https://maps.google.com/?q=${encodeURIComponent(locationDisplay)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition flex items-center gap-1 shadow-sm"
+            >
+              📍 موقع المطعم
+            </a>
+          </div>
         </div>
 
+        {/* قائمة الأصناف */}
         <h2 className="text-xl font-bold mb-4 text-gray-800">قائمة الطعام والمشروبات</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -297,7 +329,6 @@ export default function PublicSitePage() {
                   </select>
                 </div>
 
-                {/* تظهر هذه الخانة تلقائياً إذا اختار العميل توصيل */}
                 {orderType.includes('توصيل') && (
                   <div>
                     <label className="block text-xs font-semibold text-emerald-800 mb-1">
