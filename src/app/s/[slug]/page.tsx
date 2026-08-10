@@ -13,6 +13,7 @@ export default function PublicSitePage() {
   const [loading, setLoading] = useState(true);
   const [business, setBusiness] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   const supabase = createClient();
 
@@ -21,7 +22,7 @@ export default function PublicSitePage() {
       if (!slug) return;
       setLoading(true);
 
-      let { data, error } = await supabase
+      let { data } = await supabase
         .from('businesses')
         .select('*')
         .eq('site_id', slug)
@@ -73,27 +74,84 @@ export default function PublicSitePage() {
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-        <h1 className="text-3xl font-bold mb-2 text-gray-900">{business.business_name}</h1>
-        <p className="text-gray-600 mb-6">{business.description || 'أهلاً بكم في صفحتنا'}</p>
+        
+        {/* هيدر المحل */}
+        <div className="text-center border-b pb-6 mb-6">
+          <h1 className="text-3xl font-bold mb-2 text-gray-900">{business.business_name}</h1>
+          <p className="text-gray-600 mb-4">{business.description || 'أهلاً بكم في صفحتنا'}</p>
 
-        <h2 className="text-xl font-bold mb-4 border-b pb-2 text-gray-800">قائمة الطعام / الخدمات</h2>
+          {/* أزرار التفاعل: حجز طاولة واتساب */}
+          <div className="flex justify-center gap-3 mt-4">
+            <button 
+              onClick={() => setShowBookingModal(true)}
+              className="bg-black text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-800 transition"
+            >
+              📅 حجز طاولة
+            </button>
+            
+            {business.phone && (
+              <a 
+                href={`https://wa.me/${business.phone}`} 
+                target="_blank" 
+                rel="noreferrer"
+                className="bg-green-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-green-700 transition"
+              >
+                💬 تواصل واتساب
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* قائمة الأصناف */}
+        <h2 className="text-xl font-bold mb-4 text-gray-800">قائمة الطعام / الخدمات</h2>
         
         {services.length === 0 ? (
-          <p className="text-gray-500">لا توجد أصناف مضافة حالياً.</p>
+          <p className="text-gray-500 text-center py-4">لا توجد أصناف مضافة حالياً.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {services.map((item) => (
-              <div key={item.id} className="border border-gray-200 p-4 rounded-xl bg-gray-50 flex justify-between items-center">
+              <div key={item.id} className="border border-gray-100 p-4 rounded-xl bg-gray-50 flex justify-between items-center shadow-sm">
                 <div>
-                  <h3 className="font-semibold text-lg text-gray-900">{item.name}</h3>
+                  {/* يقرأ name أو title بشكل تلقائي */}
+                  <h3 className="font-bold text-lg text-gray-900">{item.name || item.title || 'صنف بدون اسم'}</h3>
                   {item.description && <p className="text-sm text-gray-500 mt-1">{item.description}</p>}
-                  <span className="inline-block mt-2 font-bold text-green-700 text-base">{item.price} ر.س</span>
                 </div>
+                <span className="font-bold text-green-700 text-base dir-ltr">{item.price} SAR</span>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* نافذة حجز الطاولة */}
+      {showBookingModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-2xl max-w-sm w-full text-center space-y-4">
+            <h3 className="text-xl font-bold text-gray-900">حجز طاولة</h3>
+            <p className="text-sm text-gray-600">للحجز المباشر يرجى التواصل معنا عبر الواتساب أو الاتصال.</p>
+            <div className="pt-2 flex flex-col gap-2">
+              {business.phone ? (
+                <a 
+                  href={`https://wa.me/${business.phone}?text=مرحباً،%20أرغب%20في%20حجز%20طاولة`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-green-600 text-white py-2.5 rounded-xl font-semibold text-sm"
+                >
+                  إرسال طلب حجز عبر الواتساب
+                </a>
+              ) : (
+                <p className="text-xs text-red-500">لم يتم إضافة رقم هاتف للنشاط بعد.</p>
+              )}
+              <button 
+                onClick={() => setShowBookingModal(false)}
+                className="bg-gray-100 text-gray-700 py-2 rounded-xl text-sm font-medium"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
