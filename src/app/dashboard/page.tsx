@@ -1,119 +1,247 @@
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+'use client'
 
-export default async function DashboardPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-  const { data: websites } = await supabase
-    .from('websites')
-    .select(`
-      id,
-      slug,
-      status,
-      businesses (
-        id,
-        business_name,
-        business_type
-      )
-    `)
-    .eq('user_id', user?.id || '');
+export default function DashboardPage() {
+  const [businesses, setBusinesses] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
-  const businessIds = websites?.map(w => {
-    const biz = Array.isArray(w.businesses) ? w.businesses[0] : w.businesses;
-    return biz?.id;
-  }).filter(Boolean) || [];
+  // بيانات النشاط الجديد
+  const [businessName, setBusinessName] = useState('')
+  const [businessType, setBusinessType] = useState('مطعم')
+  const [description, setDescription] = useState('')
+  const [phone, setPhone] = useState('')
+  const [siteId, setSiteId] = useState('')
 
-  let totalViews = 0;
-  if (businessIds.length > 0) {
-    const { count } = await supabase
-      .from('analytics')
-      .select('*', { count: 'exact', head: true })
-      .in('business_id', businessIds);
-    
-    totalViews = count || 0;
+  const router = useRouter()
+  const supabase = createClient()
+
+  const fetchBusinesses = async () => {
+    setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      router.push('/login')
+      return
+    }
+
+    const { data } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('user_id', user.id)
+
+    if (data) setBusinesses(data)
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    fetchBusinesses()
+  }, [])
+
+  const handleCreateBusiness = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!businessName.trim() || !siteId.trim()) {
+      alert('لطفاً اكتب اسم النشاط ورابط التعريف (Site ID)')
+      return
+    }
+
+    setSubmitting(true)
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      alert('جلسة الدخول انتهت، يرجى إعادة تسجيل الدخول')
+      setSubmitting(false)
+      return
+    }
+
+    const cleanSiteId = siteId.trim().toLowerCase().replace(/\s+/g, '-')
+
+    const { error } = await supabase.from('businesses').insert([
+      {
+        user_id: user.id,
+        business_name: businessName,
+        business_type: businessType, // تم إضافة هذا العمود لحل خطأ not-null
+        description: description,
+        phone: phone,
+        site_id: cleanSiteId,
+      },
+    ])
+
+    setSubmitting(false)
+
+    if (error) {
+      alert('حدث خطأ أثناء إضافة النشاط: ' + error.message)
+    } else {
+      setShowModal(false)
+      setBusinessName('')
+      setBusinessType('مطعم')
+      setDescription('')
+      setPhone('')
+      setSiteId('')
+      fetchBusinesses() // تحديث القائمة فوراً
+    }
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4 dir-rtl">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">أنشطتي التجارية</h1>
-          <p className="text-sm text-gray-500 mt-1">مرحباً بك، يمكنك متابعة أداء مواقعك وإدارتها من هنا.</p>
-        </div>
-
-        <div className="flex gap-2">
-          <Link
-            href="/dashboard/orders"
-            className="bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 text-sm"
+    <div className="min-h-screen bg-stone-50 p-4 md:p-8" dir="rtl">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* الشريط العلوي */}
+        <div className="flex justify-between items-center bg-white p-4 rounded-2xl border shadow-sm">
+          <h1 className="text-xl font-bold text-emerald-950 flex items-center gap-2">
+            🏠 موقعي
+          </h1>
+          <button
+            onClick={handleLogout}
+            className="text-xs font-bold text-gray-600 bg-gray-100 px-3 py-2 rounded-xl hover:bg-gray-200 transition"
           >
-            👨‍🍳 شاشة الطلبات الحية
-          </Link>
-          <Link
-            href="/dashboard/create"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 text-sm"
+            🚪 تسجيل الخروج
+          </button>
+        </div>
+
+        {/* هيدر لوحة التحكم والزر */}
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-gray-900">لوحة التحكم</h2>
+          
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 active:scale-95 transition"
           >
-            <span>+</span> إنشاء موقع جديد
-          </Link>
+            + إضافة نشاط جديد
+          </button>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-          <span className="text-xs text-gray-400 font-bold block mb-1">إجمالي الزيارات</span>
-          <span className="text-3xl font-black text-emerald-600">{totalViews}</span>
-          <span className="text-xs text-gray-500 block mt-1">مشاهدة حقيقية للمواقع</span>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-          <span className="text-xs text-gray-400 font-bold block mb-1">عدد المواقع</span>
-          <span className="text-3xl font-black text-gray-800">{websites?.length || 0}</span>
-          <span className="text-xs text-gray-500 block mt-1">مواقع نشطة بالمشروع</span>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-          <span className="text-xs text-gray-400 font-bold block mb-1">حالة السيرفر</span>
-          <span className="text-3xl font-black text-blue-600">100%</span>
-          <span className="text-xs text-emerald-600 font-bold block mt-1">● متصل أونلاين</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {websites && websites.length > 0 ? (
-          websites.map((site: any) => {
-            const biz = Array.isArray(site.businesses) ? site.businesses[0] : site.businesses;
-            return (
-              <Link
-                key={site.id}
-                href={`/dashboard/editor/${site.id}`}
-                className="block bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-500 transition group"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="text-lg font-bold text-gray-800 group-hover:text-emerald-600 transition">
-                    {biz?.business_name || 'نشاط بدون اسم'}
-                  </h3>
-                  <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-bold">
-                    نشط
-                  </span>
-                </div>
-                
-                <p className="text-sm text-gray-500 mb-4">
-                  النوع: {biz?.business_type || 'غير محدد'}
-                </p>
-
-                <div className="text-xs font-semibold text-emerald-600 group-hover:underline flex items-center gap-1">
-                  تعديل الموقع والمنيو ←
-                </div>
-              </Link>
-            );
-          })
+        {/* قائمة الأنشطة والمطاعم */}
+        {loading ? (
+          <p className="text-center py-10 text-gray-500 font-medium">جاري التحميل...</p>
+        ) : businesses.length === 0 ? (
+          <div className="bg-white p-8 rounded-2xl border text-center space-y-3">
+            <p className="text-gray-500">لا يوجد لديك أي نشاط حالياً.</p>
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold"
+            >
+              إضافة أول نشاط الآن
+            </button>
+          </div>
         ) : (
-          <div className="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-            <p className="text-gray-500 mb-4">لا توجد لديك مواقع حالياً</p>
-            <Link href="/dashboard/create" className="text-emerald-600 font-medium hover:underline">
-              أنشئ موقعك الأول الآن
-            </Link>
+          <div className="space-y-4">
+            {businesses.map((b) => (
+              <div
+                key={b.id}
+                className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex justify-between items-center"
+              >
+                <div>
+                  <h3 className="font-bold text-lg text-gray-900">{b.business_name}</h3>
+                  <p className="text-xs text-gray-500 mt-1">{b.description || 'لا يوجد وصف'}</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/s/${b.site_id || b.id}`}
+                    target="_blank"
+                    className="text-blue-600 text-sm font-bold underline px-3 py-1.5"
+                  >
+                    عرض الصفحة
+                  </Link>
+                </div>
+              </div>
+            ))}
           </div>
         )}
+
       </div>
+
+      {/* النافذة المنبثقة لإضافة نشاط جديد Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4" dir="rtl">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="text-lg font-bold text-gray-900">إضافة نشاط جديد</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 font-bold text-lg">✕</button>
+            </div>
+
+            <form onSubmit={handleCreateBusiness} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">اسم النشاط / المطعم:</label>
+                <input
+                  type="text"
+                  placeholder="مثال: ماكت | Maketh"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">نوع النشاط:</label>
+                <select
+                  value={businessType}
+                  onChange={(e) => setBusinessType(e.target.value)}
+                  className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50"
+                >
+                  <option value="مطعم">مطعم / وجبات سريعة</option>
+                  <option value="مقهى">مقهى / كافيه</option>
+                  <option value="متجر">متجر / خدمات أخرى</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">معرف الرابط (Site ID):</label>
+                <input
+                  type="text"
+                  placeholder="مثال: maketh"
+                  value={siteId}
+                  onChange={(e) => setSiteId(e.target.value)}
+                  className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50 dir-ltr text-right"
+                  required
+                />
+                <span className="text-[10px] text-gray-400 mt-1 block">سيكون رابط الصفحة: /s/{siteId || 'your-id'}</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">وصف قصير:</label>
+                <textarea
+                  placeholder="وصف للنشاط أو الوجبات"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50 h-16"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">رقم الجوال / الواتساب:</label>
+                <input
+                  type="tel"
+                  placeholder="0541407675"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition disabled:bg-gray-400 mt-2"
+              >
+                {submitting ? 'جاري الحفظ...' : 'حفظ وإنشاء النشاط 🚀'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  )
 }
