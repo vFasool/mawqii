@@ -75,16 +75,16 @@ export default function PublicSitePage() {
     <main className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
         
-        {/* هيدر المحل */}
+        {/* هيدر المطعم/النشاط */}
         <div className="text-center border-b pb-6 mb-6">
-          <h1 className="text-3xl font-bold mb-2 text-gray-900">{business.business_name}</h1>
+          <h1 className="text-3xl font-bold mb-2 text-gray-900">{business.business_name || business.name}</h1>
           <p className="text-gray-600 mb-4">{business.description || 'أهلاً بكم في صفحتنا'}</p>
 
-          {/* أزرار التفاعل: حجز طاولة واتساب */}
+          {/* أزرار حجز الطاولة والواتساب */}
           <div className="flex justify-center gap-3 mt-4">
             <button 
               onClick={() => setShowBookingModal(true)}
-              className="bg-black text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-800 transition"
+              className="bg-black text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-800 transition shadow-sm"
             >
               📅 حجز طاولة
             </button>
@@ -94,7 +94,7 @@ export default function PublicSitePage() {
                 href={`https://wa.me/${business.phone}`} 
                 target="_blank" 
                 rel="noreferrer"
-                className="bg-green-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-green-700 transition"
+                className="bg-green-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-green-700 transition shadow-sm"
               >
                 💬 تواصل واتساب
               </a>
@@ -102,28 +102,34 @@ export default function PublicSitePage() {
           </div>
         </div>
 
-        {/* قائمة الأصناف */}
+        {/* قائمة الطعام */}
         <h2 className="text-xl font-bold mb-4 text-gray-800">قائمة الطعام / الخدمات</h2>
         
         {services.length === 0 ? (
           <p className="text-gray-500 text-center py-4">لا توجد أصناف مضافة حالياً.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {services.map((item) => (
-              <div key={item.id} className="border border-gray-100 p-4 rounded-xl bg-gray-50 flex justify-between items-center shadow-sm">
-                <div>
-                  {/* يقرأ name أو title بشكل تلقائي */}
-                  <h3 className="font-bold text-lg text-gray-900">{item.name || item.title || 'صنف بدون اسم'}</h3>
-                  {item.description && <p className="text-sm text-gray-500 mt-1">{item.description}</p>}
+            {services.map((item) => {
+              // البحث عن الاسم بغض النظر عن اسم العمود في قاعدة البيانات
+              const itemName = item.name || item.title || item.item_name || item.service_name || item.label || 'صنف';
+              const itemDesc = item.description || item.desc || item.details;
+              const itemPrice = item.price || item.cost || 0;
+
+              return (
+                <div key={item.id} className="border border-gray-100 p-4 rounded-xl bg-gray-50 flex justify-between items-center shadow-sm">
+                  <div>
+                    <h3 className="font-bold text-lg text-gray-900">{itemName}</h3>
+                    {itemDesc && <p className="text-sm text-gray-500 mt-1">{itemDesc}</p>}
+                  </div>
+                  <span className="font-bold text-green-700 text-base dir-ltr">{itemPrice} SAR</span>
                 </div>
-                <span className="font-bold text-green-700 text-base dir-ltr">{item.price} SAR</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* نافذة حجز الطاولة */}
+      {/* نافذة حجز الطاولة popup */}
       {showBookingModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl max-w-sm w-full text-center space-y-4">
@@ -140,7 +146,7 @@ export default function PublicSitePage() {
                   إرسال طلب حجز عبر الواتساب
                 </a>
               ) : (
-                <p className="text-xs text-red-500">لم يتم إضافة رقم هاتف للنشاط بعد.</p>
+                <p className="text-xs text-red-500">يرجى إضافة رقم الهاتف في لوحة التحكم لتفعيل الحجز.</p>
               )}
               <button 
                 onClick={() => setShowBookingModal(false)}
