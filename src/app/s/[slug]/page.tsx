@@ -115,7 +115,7 @@ export default function PublicSitePage() {
       quantity,
     }));
 
-    // إرسال الطلب مع دعم الحقلين لتفادي خطأ اسم العمود
+    // إرسال البيانات بشكل ديناميكي لتفادي أي خطأ بأسماء الأعمدة
     const orderPayload: any = {
       business_id: business.id,
       customer_name: customerName,
@@ -123,23 +123,22 @@ export default function PublicSitePage() {
       order_type: orderType,
       payment_method: paymentMethod,
       items: formattedItems,
-      total_price: totalPrice,
       status: 'جديد',
     };
 
-    let { error } = await supabase.from('orders').insert([orderPayload]);
+    // تجربة الإرسال باسم total_price أولاً
+    let { error } = await supabase.from('orders').insert([{ ...orderPayload, total_price: totalPrice }]);
 
-    if (error && error.message.includes('total_price')) {
-      delete orderPayload.total_price;
-      orderPayload.total = totalPrice;
-      const secondTry = await supabase.from('orders').insert([orderPayload]);
-      error = secondTry.error;
+    // إذا فشل، تجربة الإرسال باسم total
+    if (error) {
+      const retry = await supabase.from('orders').insert([{ ...orderPayload, total: totalPrice }]);
+      error = retry.error;
     }
 
     setSubmitting(false);
 
     if (error) {
-      alert('حدث خطأ أثناء إرسال الطلب: ' + error.message);
+      alert('خطأ في إرسال الطلب: ' + error.message);
     } else {
       setOrderSuccess(true);
       setCart({});
@@ -163,14 +162,55 @@ export default function PublicSitePage() {
     );
   }
 
+  // استخراج بيانات الاتصال والموقع بصيغ مختلفة
+  const phone = business.phone || business.phone_number || business.mobile;
+  const location = business.location || business.address || business.map_url || business.google_maps;
+
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8 pb-28" dir="rtl">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+        
+        {/* هيدر المطعم والمعلومات */}
         <div className="text-center border-b pb-6 mb-6">
           <h1 className="text-3xl font-bold mb-2 text-gray-900">{business.business_name || business.name}</h1>
           <p className="text-gray-600 mb-4">{business.description || 'مطعم سحابي يقدم وجبات سريعة'}</p>
+
+          {/* أزرار الاتصال والموقع */}
+          <div className="flex flex-wrap justify-center gap-3 mt-4">
+            {phone && (
+              <a 
+                href={`tel:${phone}`}
+                className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition flex items-center gap-1"
+              >
+                📞 {phone}
+              </a>
+            )}
+
+            {location && (
+              <a 
+                href={location.startsWith('http') ? location : `https://maps.google.com/?q=${encodeURIComponent(location)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition flex items-center gap-1"
+              >
+                📍 موقع المطعم
+              </a>
+            )}
+
+            {phone && (
+              <a 
+                href={`https://wa.me/${phone.replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-green-700 transition flex items-center gap-1"
+              >
+                💬 واتساب
+              </a>
+            )}
+          </div>
         </div>
 
+        {/* قائمة الطعام */}
         <h2 className="text-xl font-bold mb-4 text-gray-800">قائمة الطعام والمشروبات</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -189,8 +229,8 @@ export default function PublicSitePage() {
                 <div className="flex items-center gap-2">
                   {inCartQty > 0 ? (
                     <div className="flex items-center gap-2 bg-white border rounded-lg p-1">
-                      <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 bg-gray-100 font-bold rounded">-</button>
-                      <span className="font-bold text-sm">{inCartQty}</span>
+                      <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 bg-gray-100 font-bold rounded text-gray-900">-</button>
+                      <span className="font-bold text-sm text-gray-900">{inCartQty}</span>
                       <button onClick={() => addToCart(item)} className="w-7 h-7 bg-emerald-700 text-white font-bold rounded">+</button>
                     </div>
                   ) : (
@@ -208,6 +248,7 @@ export default function PublicSitePage() {
         </div>
       </div>
 
+      {/* زر عرض السلة */}
       {totalItemsCount > 0 && (
         <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40">
           <button 
@@ -225,6 +266,7 @@ export default function PublicSitePage() {
         </div>
       )}
 
+      {/* نافذة السلة والدفع */}
       {showCartModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl" dir="rtl">
