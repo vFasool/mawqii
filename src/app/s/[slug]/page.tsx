@@ -13,6 +13,7 @@ export default function PublicSitePage() {
   const [loading, setLoading] = useState(true);
   const [business, setBusiness] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
+  const [debugError, setDebugError] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -21,26 +22,38 @@ export default function PublicSitePage() {
       if (!slug) return;
       setLoading(true);
 
-      // 1. البحث في site_id مع إلغاء الـ Cache
-      const { data: bData, error } = await supabase
+      // 1. تجربة البحث برابط الموقع site_id
+      let { data, error } = await supabase
         .from('businesses')
         .select('*')
-        .or(`site_id.eq.${slug},id.eq.${slug}`)
+        .eq('site_id', slug)
         .maybeSingle();
 
-      if (!bData) {
-        setLoading(false);
-        return;
+      // 2. إذا لم يجد نتائج، يجرب البحث بـ id الطويل
+      if (!data) {
+        const res = await supabase
+          .from('businesses')
+          .select('*')
+          .eq('id', slug)
+          .maybeSingle();
+        data = res.data;
+        if (res.error) error = res.error;
       }
 
-      setBusiness(bData);
+      if (error) {
+        setDebugError(error.message);
+      }
 
-      const { data: sData } = await supabase
-        .from('services')
-        .select('*')
-        .eq('business_id', bData.id);
+      if (data) {
+        setBusiness(data);
+        const { data: sData } = await supabase
+          .from('services')
+          .select('*')
+          .eq('business_id', data.id);
 
-      if (sData) setServices(sData);
+        if (sData) setServices(sData);
+      }
+
       setLoading(false);
     }
 
@@ -57,9 +70,14 @@ export default function PublicSitePage() {
 
   if (!business) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50 text-center" dir="rtl">
         <h1 className="text-2xl font-bold mb-2 text-red-600">الموقع غير موجود</h1>
-        <p className="text-gray-600 mb-4">تأكد من صحة الرابط وحاول مرة أخرى.</p>
+        <p className="text-gray-600 mb-2">تأكد من صحة الرابط وحاول مرة أخرى.</p>
+        {debugError && (
+          <p className="text-xs text-red-400 bg-red-50 p-2 rounded mb-4 dir-ltr font-mono">
+            Error: {debugError}
+          </p>
+        )}
         <Link href="/" className="text-blue-600 underline font-medium">العودة للرئيسية</Link>
       </div>
     );
