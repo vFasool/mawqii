@@ -146,10 +146,10 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-500 mt-1">{b.description || 'لا يوجد وصف'}</p>
                 </div>
 
-                {/* أزرار التوجيه المضافة */}
+                {/* أزرار التوجيه بعد التعديل لربط المجلد editor/[id] */}
                 <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                   <Link
-                    href={`/dashboard/edit/${b.id}`}
+                    href={`/dashboard/editor/${b.id}`}
                     className="bg-emerald-800 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-emerald-900 transition flex-1 md:flex-none text-center"
                   >
                     ✏️ المحرر الشامل
@@ -177,7 +177,7 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* النافذة المنبثقة Modal */}
+      {/* النافذة المنبثقة لإضافة نشاط جديد Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4" dir="rtl">
