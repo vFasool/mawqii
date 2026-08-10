@@ -16,21 +16,16 @@ export default function PublicSitePage() {
   const [business, setBusiness] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
 
-  // حالات السلة وواجهة الطلب
   const [cart, setCart] = useState<{ [key: string]: { item: any; quantity: number } }>({});
   const [showCartModal, setShowCartModal] = useState(false);
-  const [showBookingModal, setShowBookingModal] = useState(false);
 
-  // بيانات نموذج الطلب والدفع
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [orderType, setOrderType] = useState('استلام سفري 🛍️');
-  const [splitBill, setSplitBill] = useState('شخص واحد (كامل)');
   const [paymentMethod, setPaymentMethod] = useState('كاش عند الاستلام 💵');
 
   const supabase = createClient();
 
-  // تحويل السعر لـ Number لتفادي NaN
   const parsePrice = (priceVal: any) => {
     if (!priceVal) return 0;
     const cleanNumber = String(priceVal).replace(/[^0-9.]/g, '');
@@ -105,7 +100,6 @@ export default function PublicSitePage() {
     return sum + price * i.quantity;
   }, 0);
 
-  // إرسال الطلب لقاعدة البيانات وحفظه لشاشة المطعم
   const handleConfirmOrder = async () => {
     if (!customerName.trim() || !customerPhone.trim()) {
       alert('لطفاً اكتب الاسم ورقم الجوال لتأكيد الطلب.');
@@ -121,18 +115,26 @@ export default function PublicSitePage() {
       quantity,
     }));
 
-    const { error } = await supabase.from('orders').insert([
-      {
-        business_id: business.id,
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        order_type: orderType,
-        payment_method: paymentMethod,
-        items: formattedItems,
-        total: totalPrice, // التعديل هنا: total بدلاً من total_price
-        status: 'جديد',
-      },
-    ]);
+    // إرسال الطلب مع دعم الحقلين لتفادي خطأ اسم العمود
+    const orderPayload: any = {
+      business_id: business.id,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      order_type: orderType,
+      payment_method: paymentMethod,
+      items: formattedItems,
+      total_price: totalPrice,
+      status: 'جديد',
+    };
+
+    let { error } = await supabase.from('orders').insert([orderPayload]);
+
+    if (error && error.message.includes('total_price')) {
+      delete orderPayload.total_price;
+      orderPayload.total = totalPrice;
+      const secondTry = await supabase.from('orders').insert([orderPayload]);
+      error = secondTry.error;
+    }
 
     setSubmitting(false);
 
@@ -156,7 +158,6 @@ export default function PublicSitePage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50 text-center" dir="rtl">
         <h1 className="text-2xl font-bold mb-2 text-red-600">الموقع غير موجود</h1>
-        <p className="text-gray-600 mb-4">تأكد من صحة الرابط وحاول مرة أخرى.</p>
         <Link href="/" className="text-blue-600 underline font-medium">العودة للرئيسية</Link>
       </div>
     );
@@ -165,65 +166,48 @@ export default function PublicSitePage() {
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8 pb-28" dir="rtl">
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-        
-        {/* هيدر المطعم */}
         <div className="text-center border-b pb-6 mb-6">
           <h1 className="text-3xl font-bold mb-2 text-gray-900">{business.business_name || business.name}</h1>
           <p className="text-gray-600 mb-4">{business.description || 'مطعم سحابي يقدم وجبات سريعة'}</p>
-
-          <div className="flex justify-center gap-3 mt-4">
-            <button 
-              onClick={() => setShowBookingModal(true)}
-              className="bg-emerald-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-900 transition shadow-sm"
-            >
-              🍽️ طابور الانتظار والحجز
-            </button>
-          </div>
         </div>
 
-        {/* قائمة الطعام */}
         <h2 className="text-xl font-bold mb-4 text-gray-800">قائمة الطعام والمشروبات</h2>
         
-        {services.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">لا توجد أصناف مضافة حالياً.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {services.map((item) => {
-              const itemName = item.name || item.title || item.item_name || 'صنف';
-              const itemPrice = parsePrice(item.price || item.cost);
-              const inCartQty = cart[item.id]?.quantity || 0;
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {services.map((item) => {
+            const itemName = item.name || item.title || item.item_name || 'صنف';
+            const itemPrice = parsePrice(item.price || item.cost);
+            const inCartQty = cart[item.id]?.quantity || 0;
 
-              return (
-                <div key={item.id} className="border border-gray-100 p-4 rounded-xl bg-gray-50 flex justify-between items-center shadow-sm">
-                  <div>
-                    <h3 className="font-bold text-lg text-gray-900">{itemName}</h3>
-                    <span className="font-bold text-gray-600 text-sm mt-1 inline-block">{itemPrice} ر.س</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {inCartQty > 0 ? (
-                      <div className="flex items-center gap-2 bg-white border rounded-lg p-1">
-                        <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 bg-gray-100 font-bold rounded">-</button>
-                        <span className="font-bold text-sm">{inCartQty}</span>
-                        <button onClick={() => addToCart(item)} className="w-7 h-7 bg-emerald-700 text-white font-bold rounded">+</button>
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => addToCart(item)}
-                        className="bg-emerald-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-emerald-900 transition"
-                      >
-                        + إضافة
-                      </button>
-                    )}
-                  </div>
+            return (
+              <div key={item.id} className="border border-gray-100 p-4 rounded-xl bg-gray-50 flex justify-between items-center shadow-sm">
+                <div>
+                  <h3 className="font-bold text-lg text-gray-900">{itemName}</h3>
+                  <span className="font-bold text-gray-600 text-sm mt-1 inline-block">{itemPrice} ر.س</span>
                 </div>
-              );
-            })}
-          </div>
-        )}
+
+                <div className="flex items-center gap-2">
+                  {inCartQty > 0 ? (
+                    <div className="flex items-center gap-2 bg-white border rounded-lg p-1">
+                      <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 bg-gray-100 font-bold rounded">-</button>
+                      <span className="font-bold text-sm">{inCartQty}</span>
+                      <button onClick={() => addToCart(item)} className="w-7 h-7 bg-emerald-700 text-white font-bold rounded">+</button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => addToCart(item)}
+                      className="bg-emerald-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-emerald-900 transition"
+                    >
+                      + إضافة
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* شريط السلة العائم */}
       {totalItemsCount > 0 && (
         <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40">
           <button 
@@ -241,14 +225,11 @@ export default function PublicSitePage() {
         </div>
       )}
 
-      {/* مودال سلة الطلبات */}
       {showCartModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl" dir="rtl">
             <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                🛒 سلة الطلبات
-              </h3>
+              <h3 className="text-lg font-bold text-gray-800">🛒 سلة الطلبات</h3>
               <button onClick={() => setShowCartModal(false)} className="text-gray-400 font-bold text-lg">✕</button>
             </div>
 
@@ -266,7 +247,6 @@ export default function PublicSitePage() {
               </div>
             ) : (
               <>
-                {/* الأصناف في السلة */}
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {cartItems.map(({ item, quantity }) => {
                     const name = item.name || item.title || item.item_name || 'صنف';
@@ -280,26 +260,11 @@ export default function PublicSitePage() {
                   })}
                 </div>
 
-                {/* تقسيم الحساب */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">💳 تقسيم الحساب بين الأصدقاء:</label>
-                  <select 
-                    value={splitBill}
-                    onChange={(e) => setSplitBill(e.target.value)}
-                    className="w-full border p-2 rounded-xl text-sm bg-gray-50 text-gray-800 outline-none"
-                  >
-                    <option value="شخص واحد (كامل)">شخص واحد (كامل)</option>
-                    <option value="تقسيم بالتساوي">تقسيم بالتساوي</option>
-                  </select>
-                </div>
-
-                {/* الإجمالي */}
                 <div className="flex justify-between items-center font-bold text-base py-1 border-t text-gray-900">
                   <span>الإجمالي:</span>
                   <span className="text-emerald-800 font-extrabold">{totalPrice} ر.س</span>
                 </div>
 
-                {/* مدخلات الزبون */}
                 <div className="space-y-2">
                   <input 
                     type="text" 
@@ -317,7 +282,6 @@ export default function PublicSitePage() {
                   />
                 </div>
 
-                {/* طريقة الاستلام */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">طريقة الاستلام:</label>
                   <select 
@@ -331,7 +295,6 @@ export default function PublicSitePage() {
                   </select>
                 </div>
 
-                {/* طريقة الدفع */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">طريقة الدفع:</label>
                   <select 
@@ -342,11 +305,9 @@ export default function PublicSitePage() {
                     <option value="كاش عند الاستلام 💵">كاش عند الاستلام 💵</option>
                     <option value="Apple Pay 🍏">Apple Pay 🍏</option>
                     <option value="تابي (تقسيط) 🛍️">تابي (دفعة بعدين) 🛍️</option>
-                    <option value="بطاقة مدى / ائتمانية 💳">بطاقة مدى / ائتمانية 💳</option>
                   </select>
                 </div>
 
-                {/* زر تأكيد الطلب */}
                 <button 
                   onClick={handleConfirmOrder}
                   disabled={submitting}
@@ -356,22 +317,6 @@ export default function PublicSitePage() {
                 </button>
               </>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* مودال الحجز */}
-      {showBookingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white p-6 rounded-2xl max-w-sm w-full text-center space-y-4">
-            <h3 className="text-xl font-bold text-gray-900">حجز طاولة / طابور انتظار</h3>
-            <p className="text-sm text-gray-600">للحجز المباشر يرجى التواصل مع استقبال المطعم.</p>
-            <button 
-              onClick={() => setShowBookingModal(false)}
-              className="bg-gray-100 text-gray-700 w-full py-2 rounded-xl text-sm font-medium"
-            >
-              إغلاق
-            </button>
           </div>
         </div>
       )}
