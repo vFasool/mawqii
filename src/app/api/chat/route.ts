@@ -26,8 +26,7 @@ export async function POST(req: Request) {
 
     const supabase = await createClient();
     
-    // @ts-ignore
-    await supabase.from('ai_chats').insert([
+    await (supabase.from('ai_chats') as any).insert([
       { business_id: businessId, user_message: message, ai_response: reply }
     ]);
 
