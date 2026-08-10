@@ -19,8 +19,10 @@ export default function PublicSitePage() {
   const [cart, setCart] = useState<{ [key: string]: { item: any; quantity: number } }>({});
   const [showCartModal, setShowCartModal] = useState(false);
 
+  // بيانات النموذج
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
   const [orderType, setOrderType] = useState('استلام سفري 🛍️');
   const [paymentMethod, setPaymentMethod] = useState('كاش عند الاستلام 💵');
 
@@ -106,6 +108,11 @@ export default function PublicSitePage() {
       return;
     }
 
+    if (orderType.includes('توصيل') && !customerAddress.trim()) {
+      alert('لطفاً أدخل موقع التوصيل أو عنوانك.');
+      return;
+    }
+
     setSubmitting(true);
 
     const formattedItems = cartItems.map(({ item, quantity }) => ({
@@ -115,30 +122,25 @@ export default function PublicSitePage() {
       quantity,
     }));
 
-    // إرسال البيانات بشكل ديناميكي لتفادي أي خطأ بأسماء الأعمدة
     const orderPayload: any = {
       business_id: business.id,
       customer_name: customerName,
       customer_phone: customerPhone,
+      address: customerAddress,
       order_type: orderType,
       payment_method: paymentMethod,
       items: formattedItems,
-      status: 'جديد',
+      total_price: totalPrice,
+      total: totalPrice,
+      status: 'جديد 🆕',
     };
 
-    // تجربة الإرسال باسم total_price أولاً
-    let { error } = await supabase.from('orders').insert([{ ...orderPayload, total_price: totalPrice }]);
-
-    // إذا فشل، تجربة الإرسال باسم total
-    if (error) {
-      const retry = await supabase.from('orders').insert([{ ...orderPayload, total: totalPrice }]);
-      error = retry.error;
-    }
+    let { error } = await supabase.from('orders').insert([orderPayload]);
 
     setSubmitting(false);
 
     if (error) {
-      alert('خطأ في إرسال الطلب: ' + error.message);
+      alert('حدث خطأ أثناء إرسال الطلب: ' + error.message);
     } else {
       setOrderSuccess(true);
       setCart({});
@@ -162,7 +164,6 @@ export default function PublicSitePage() {
     );
   }
 
-  // استخراج بيانات الاتصال والموقع بصيغ مختلفة
   const phone = business.phone || business.phone_number || business.mobile;
   const location = business.location || business.address || business.map_url || business.google_maps;
 
@@ -175,42 +176,29 @@ export default function PublicSitePage() {
           <h1 className="text-3xl font-bold mb-2 text-gray-900">{business.business_name || business.name}</h1>
           <p className="text-gray-600 mb-4">{business.description || 'مطعم سحابي يقدم وجبات سريعة'}</p>
 
-          {/* أزرار الاتصال والموقع */}
           <div className="flex flex-wrap justify-center gap-3 mt-4">
             {phone && (
               <a 
                 href={`tel:${phone}`}
-                className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition flex items-center gap-1"
+                className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition"
               >
                 📞 {phone}
               </a>
             )}
-
             {location && (
               <a 
                 href={location.startsWith('http') ? location : `https://maps.google.com/?q=${encodeURIComponent(location)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition flex items-center gap-1"
+                className="bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition"
               >
                 📍 موقع المطعم
-              </a>
-            )}
-
-            {phone && (
-              <a 
-                href={`https://wa.me/${phone.replace(/[^0-9]/g, '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-green-700 transition flex items-center gap-1"
-              >
-                💬 واتساب
               </a>
             )}
           </div>
         </div>
 
-        {/* قائمة الطعام */}
+        {/* قائمة الأصناف */}
         <h2 className="text-xl font-bold mb-4 text-gray-800">قائمة الطعام والمشروبات</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -317,7 +305,7 @@ export default function PublicSitePage() {
                   />
                   <input 
                     type="tel" 
-                    placeholder="رقم الجوال"
+                    placeholder="رقم الجوال (مثال: 0501234567)"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     className="w-full border p-2.5 rounded-xl text-sm bg-gray-50 outline-none text-gray-900"
@@ -336,6 +324,20 @@ export default function PublicSitePage() {
                     <option value="توصيل 🛵">توصيل 🛵</option>
                   </select>
                 </div>
+
+                {/* إظهار خانة الموقع/العنوان عند التوصيل */}
+                {orderType.includes('توصيل') && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">📍 موقع التوصيل (رابط الخريطة أو الحي/الشارع):</label>
+                    <input 
+                      type="text" 
+                      placeholder="ضع رابط موقعك من خرائط Google أو اسم الحي"
+                      value={customerAddress}
+                      onChange={(e) => setCustomerAddress(e.target.value)}
+                      className="w-full border p-2.5 rounded-xl text-sm bg-gray-50 outline-none text-gray-900"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">طريقة الدفع:</label>
