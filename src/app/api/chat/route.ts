@@ -9,22 +9,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'بيانات غير مكتملة' }, { status: 400 });
     }
 
-    const menuText = menu && menu.length > 0 
-      ? menu.map((item: any) => `- ${item.title} (السعر: ${item.price || 'غير محدد'}): ${item.description || 'بدون وصف'}`).join('\n')
-      : 'لا توجد وجبات مسجلة في المنيو حالياً.';
+    const menuText = menu && menu.length > 0
+      ? menu.map((item: any) => `- ${item.title} (السعر: ${item.price || 'غير حدد'})`).join('\n')
+      : 'لا توجد وجبات مسجلة في المنيو حالياً';
 
     const lowerMsg = message.toLowerCase();
     let reply = "";
 
-    if (lowerMsg.includes('رخيص') || lowerMsg.includes('سعر') || lowerMsg.includes('اقل')) {
-      reply = `أهلاً بك! بناءً على قائمتنا، أنصحك باستعراض الأطباق التالية المتاحة بأسعار مناسبة:\n\n${menuText}\n\nهل تحب أن أجهز لك طلباً لإحداها؟`;
-    } else if (lowerMsg.includes('افضل') || lowerMsg.includes('احسن') || lowerMsg.includes('ترشح') || lowerMsg.includes('مميز')) {
-      reply = `أكثر الأطباق مبيعاً وإقبالاً لدينا هي الأطباق التالية:\n\n${menuText}\n\nاختر وجبتك المفضلة وسأحولك فوراً للطلب عبر الواتساب!`;
+    if (lowerMsg.includes('رخيص') || lowerMsg.includes('سعر') || lowerMsg.includes('أقل')) {
+      reply = `أهلاً بك! بناءً على قائمتنا، ننصحك بالأطباق التالية المتاحة بأسعار مناسبة:\n\n${menuText}`;
+    } else if (lowerMsg.includes('افضل') || lowerMsg.includes('أحسن') || lowerMsg.includes('اقترح')) {
+      reply = `أهلاً بك! أكثر الأطباق مبيعاً وإقبالاً لدينا هي الأطباق التالية:\n\n${menuText}\n\nتفضل وسنسجل فوراً الطلب عبر الواتساب.`;
     } else {
-      reply = `أهلاً بك في مطعمنا! أنا مساعدك الذكي 🤖. بالنسبة لاستفسارك حول "${message}":\nإليك قائمة الطعام الجاهزة لدينا:\n\n${menuText}\n\nما الذي ترغب بتناوله اليوم؟`;
+      reply = `أهلاً بك في مطعمنا! أنا مساعدك الذكي 🤖. بالنسبة لاستفسارك حول "${message}": كلمة الطعام الجاهزة لدينا:\n${menuText}`;
     }
 
     const supabase = await createClient();
+    
+    // @ts-ignore
     await supabase.from('ai_chats').insert([
       { business_id: businessId, user_message: message, ai_response: reply }
     ]);
