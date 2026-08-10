@@ -1,121 +1,114 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import Link from 'next/link'
 
-export default function CreateBusinessPage() {
-  const [businessName, setBusinessName] = useState('')
-  const [description, setDescription] = useState('')
-  const [phone, setPhone] = useState('')
-  const [siteId, setSiteId] = useState('')
-  const [loading, setLoading] = useState(false)
+export default function DashboardPage() {
+  const [businesses, setBusinesses] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = createClient()
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!businessName || !siteId) {
-      alert('لطفاً اكتب اسم النشاط والمعرف الخاص بالرابط')
-      return
-    }
+  useEffect(() => {
+    async function fetchBusinesses() {
+      setLoading(true)
+      const { data: { user } } = await supabase.auth.getUser()
 
-    setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
 
-    if (!user) {
-      alert('يجب عليك تسجيل الدخول أولاً')
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('user_id', user.id)
+
+      if (data) {
+        setBusinesses(data)
+      }
       setLoading(false)
-      return
     }
 
-    const cleanSiteId = siteId.trim().toLowerCase().replace(/\s+/g, '-')
+    fetchBusinesses()
+  }, [])
 
-    const { error } = await supabase.from('businesses').insert([
-      {
-        user_id: user.id,
-        business_name: businessName,
-        description: description,
-        phone: phone,
-        site_id: cleanSiteId,
-      },
-    ])
-
-    setLoading(false)
-
-    if (error) {
-      alert('حدث خطأ أثناء إضافة النشاط: ' + error.message)
-    } else {
-      router.push('/dashboard')
-    }
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8" dir="rtl">
-      <div className="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-sm border">
-        <div className="flex justify-between items-center mb-6 border-b pb-3">
-          <h1 className="text-xl font-bold text-gray-800">إضافة نشاط جديد</h1>
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
-            إلغاء ✕
+    <div className="min-h-screen bg-stone-50 p-4 md:p-8" dir="rtl">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* الشريط العلوي */}
+        <div className="flex justify-between items-center bg-white p-4 rounded-2xl border shadow-sm">
+          <h1 className="text-xl font-bold text-emerald-950 flex items-center gap-2">
+            🏠 موقعي
+          </h1>
+          <button
+            onClick={handleLogout}
+            className="text-xs font-bold text-gray-600 bg-gray-100 px-3 py-2 rounded-xl hover:bg-gray-200 transition"
+          >
+            🚪 تسجيل الخروج
+          </button>
+        </div>
+
+        {/* عنوان لوحة التحكم مع زر إضافة نشاط معدل */}
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-gray-900">لوحة التحكم</h2>
+          
+          {/* تم تعديل الزر إلى Link لفتح الصفحة فوراً عند الضغط عليه بالموبايل */}
+          <Link
+            href="/dashboard/create"
+            className="bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 active:scale-95 transition"
+          >
+            + إضافة نشاط جديد
           </Link>
         </div>
 
-        <form onSubmit={handleCreate} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">اسم النشاط / المطعم:</label>
-            <input
-              type="text"
-              placeholder="مثال: مطعم شاورما"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50"
-              required
-            />
+        {/* قائمة الأنشطة والمطاعم */}
+        {loading ? (
+          <p className="text-center py-10 text-gray-500 font-medium">جاري التحميل...</p>
+        ) : businesses.length === 0 ? (
+          <div className="bg-white p-8 rounded-2xl border text-center space-y-3">
+            <p className="text-gray-500">لا يوجد لديك أي نشاط حالياً.</p>
+            <Link
+              href="/dashboard/create"
+              className="inline-block bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold"
+            >
+              إضافة أول نشاط الآن
+            </Link>
           </div>
+        ) : (
+          <div className="space-y-4">
+            {businesses.map((b) => (
+              <div
+                key={b.id}
+                className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex justify-between items-center"
+              >
+                <div>
+                  <h3 className="font-bold text-lg text-gray-900">{b.business_name}</h3>
+                  <p className="text-xs text-gray-500 mt-1">{b.description || 'لا يوجد وصف'}</p>
+                </div>
 
-          <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">معرف الرابط (Site ID):</label>
-            <input
-              type="text"
-              placeholder="مثال: shawarma-123"
-              value={siteId}
-              onChange={(e) => setSiteId(e.target.value)}
-              className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50 dir-ltr text-right"
-              required
-            />
-            <span className="text-[10px] text-gray-400 mt-1 block">سيكون الرابط: /s/{siteId || 'your-id'}</span>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/s/${b.site_id || b.id}`}
+                    target="_blank"
+                    className="text-blue-600 text-sm font-bold underline px-3 py-1.5"
+                  >
+                    عرض الصفحة
+                  </Link>
+                </div>
+              </div>
+            ))}
           </div>
+        )}
 
-          <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">وصف قصير:</label>
-            <textarea
-              placeholder="وصف للوجبات أو الخدمة"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50 h-20"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">رقم الجوال / الواتساب:</label>
-            <input
-              type="tel"
-              placeholder="0500000000"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition disabled:bg-gray-400 mt-2"
-          >
-            {loading ? 'جاري الحفظ...' : 'حفظ وإنشاء النشاط 🚀'}
-          </button>
-        </form>
       </div>
     </div>
   )
