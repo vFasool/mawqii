@@ -8,32 +8,81 @@ import { createClient } from '@/lib/supabase/client'
 export default function DashboardPage() {
   const [businesses, setBusinesses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  // بيانات النشاط الجديد
+  const [businessName, setBusinessName] = useState('')
+  const [description, setDescription] = useState('')
+  const [phone, setPhone] = useState('')
+  const [siteId, setSiteId] = useState('')
+
   const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    async function fetchBusinesses() {
-      setLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
+  const fetchBusinesses = async () => {
+    setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
 
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('user_id', user.id)
-
-      if (data) {
-        setBusinesses(data)
-      }
-      setLoading(false)
+    if (!user) {
+      router.push('/login')
+      return
     }
 
+    const { data } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('user_id', user.id)
+
+    if (data) setBusinesses(data)
+    setLoading(false)
+  }
+
+  useEffect(() => {
     fetchBusinesses()
   }, [])
+
+  const handleCreateBusiness = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!businessName.trim() || !siteId.trim()) {
+      alert('لطفاً اكتب اسم النشاط ورابط التعريف (Site ID)')
+      return
+    }
+
+    setSubmitting(true)
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      alert('جلسة الدخول انتهت، يرجى إعادة تسجيل الدخول')
+      setSubmitting(false)
+      return
+    }
+
+    const cleanSiteId = siteId.trim().toLowerCase().replace(/\s+/g, '-')
+
+    const { error } = await supabase.from('businesses').insert([
+      {
+        user_id: user.id,
+        business_name: businessName,
+        description: description,
+        phone: phone,
+        site_id: cleanSiteId,
+      },
+    ])
+
+    setSubmitting(false)
+
+    if (error) {
+      alert('حدث خطأ أثناء إضافة النشاط: ' + error.message)
+    } else {
+      setShowModal(false)
+      setBusinessName('')
+      setDescription('')
+      setPhone('')
+      setSiteId('')
+      fetchBusinesses() // تحديث القائمة فوراً
+    }
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -57,17 +106,16 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* عنوان لوحة التحكم مع زر إضافة نشاط معدل */}
+        {/* هيدر لوحة التحكم والزر */}
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900">لوحة التحكم</h2>
           
-          {/* تم تعديل الزر إلى Link لفتح الصفحة فوراً عند الضغط عليه بالموبايل */}
-          <Link
-            href="/dashboard/create"
+          <button
+            onClick={() => setShowModal(true)}
             className="bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 active:scale-95 transition"
           >
             + إضافة نشاط جديد
-          </Link>
+          </button>
         </div>
 
         {/* قائمة الأنشطة والمطاعم */}
@@ -76,12 +124,12 @@ export default function DashboardPage() {
         ) : businesses.length === 0 ? (
           <div className="bg-white p-8 rounded-2xl border text-center space-y-3">
             <p className="text-gray-500">لا يوجد لديك أي نشاط حالياً.</p>
-            <Link
-              href="/dashboard/create"
-              className="inline-block bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold"
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold"
             >
               إضافة أول نشاط الآن
-            </Link>
+            </button>
           </div>
         ) : (
           <div className="space-y-4">
@@ -110,6 +158,74 @@ export default function DashboardPage() {
         )}
 
       </div>
+
+      {/* النافذة المنبثقة لإضافة نشاط جديد Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4" dir="rtl">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="text-lg font-bold text-gray-900">إضافة نشاط جديد</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 font-bold text-lg">✕</button>
+            </div>
+
+            <form onSubmit={handleCreateBusiness} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">اسم النشاط / المطعم:</label>
+                <input
+                  type="text"
+                  placeholder="مثال: مطعم شاورما"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">معرف الرابط (Site ID):</label>
+                <input
+                  type="text"
+                  placeholder="مثال: shawarma-dhal"
+                  value={siteId}
+                  onChange={(e) => setSiteId(e.target.value)}
+                  className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50 dir-ltr text-right"
+                  required
+                />
+                <span className="text-[10px] text-gray-400 mt-1 block">سيكون رابط الصفحة: /s/{siteId || 'your-id'}</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">وصف قصير:</label>
+                <textarea
+                  placeholder="وصف وجبات المطعم"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50 h-16"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">رقم الجوال / الواتساب:</label>
+                <input
+                  type="tel"
+                  placeholder="0500000000"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full border p-2.5 rounded-xl text-sm outline-none text-gray-900 bg-gray-50"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition disabled:bg-gray-400 mt-2"
+              >
+                {submitting ? 'جاري الحفظ...' : 'حفظ وإنشاء النشاط 🚀'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
