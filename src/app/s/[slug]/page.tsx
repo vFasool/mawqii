@@ -30,6 +30,14 @@ export default function PublicSitePage() {
 
   const supabase = createClient();
 
+  // تحويل السعر لـ Number لتفادي NaN
+  const parsePrice = (priceVal: any) => {
+    if (!priceVal) return 0;
+    const cleanNumber = String(priceVal).replace(/[^0-9.]/g, '');
+    const parsed = parseFloat(cleanNumber);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   useEffect(() => {
     async function fetchData() {
       if (!slug) return;
@@ -93,7 +101,7 @@ export default function PublicSitePage() {
   const cartItems = Object.values(cart);
   const totalItemsCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
   const totalPrice = cartItems.reduce((sum, i) => {
-    const price = parseFloat(i.item.price || i.item.cost || 0);
+    const price = parsePrice(i.item.price || i.item.cost);
     return sum + price * i.quantity;
   }, 0);
 
@@ -109,7 +117,7 @@ export default function PublicSitePage() {
     const formattedItems = cartItems.map(({ item, quantity }) => ({
       id: item.id,
       name: item.name || item.title || item.item_name || 'صنف',
-      price: item.price || item.cost || 0,
+      price: parsePrice(item.price || item.cost),
       quantity,
     }));
 
@@ -121,7 +129,7 @@ export default function PublicSitePage() {
         order_type: orderType,
         payment_method: paymentMethod,
         items: formattedItems,
-        total_price: totalPrice,
+        total: totalPrice, // التعديل هنا: total بدلاً من total_price
         status: 'جديد',
       },
     ]);
@@ -182,7 +190,7 @@ export default function PublicSitePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {services.map((item) => {
               const itemName = item.name || item.title || item.item_name || 'صنف';
-              const itemPrice = item.price || item.cost || 0;
+              const itemPrice = parsePrice(item.price || item.cost);
               const inCartQty = cart[item.id]?.quantity || 0;
 
               return (
@@ -233,7 +241,7 @@ export default function PublicSitePage() {
         </div>
       )}
 
-      {/* مودال سلة الطلبات المكتمل مع خيارات الدفع */}
+      {/* مودال سلة الطلبات */}
       {showCartModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl" dir="rtl">
@@ -262,7 +270,7 @@ export default function PublicSitePage() {
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {cartItems.map(({ item, quantity }) => {
                     const name = item.name || item.title || item.item_name || 'صنف';
-                    const price = item.price || item.cost || 0;
+                    const price = parsePrice(item.price || item.cost);
                     return (
                       <div key={item.id} className="flex justify-between items-center text-sm border-b pb-2 text-gray-700">
                         <span>{name} × {quantity}</span>
