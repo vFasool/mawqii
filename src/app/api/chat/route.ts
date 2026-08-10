@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function POST(req: Request) {
   try {
-    const { businessId, message, menu } = await req.json();
+    const { businessId, message, menu }: any = await req.json();
 
     if (!message || !businessId) {
       return NextResponse.json({ error: 'بيانات غير مكتملة' }, { status: 400 });
@@ -24,9 +24,9 @@ export async function POST(req: Request) {
       reply = `أهلاً بك في مطعمنا! أنا مساعدك الذكي 🤖. بالنسبة لاستفسارك حول "${message}": كلمة الطعام الجاهزة لدينا:\n${menuText}`;
     }
 
-    const supabase = await createClient();
+    const supabase: any = await createClient();
     
-    await (supabase.from('ai_chats') as any).insert([
+    await supabase.from('ai_chats').insert([
       { business_id: businessId, user_message: message, ai_response: reply }
     ]);
 
